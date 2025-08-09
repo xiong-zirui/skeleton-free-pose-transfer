@@ -8,6 +8,7 @@ import torch
 import torch.utils.data
 import numpy as np
 import cv2
+import igl
 # import tables
 from global_var import *
 from scipy.spatial.transform import Rotation as R
@@ -105,6 +106,38 @@ def process_single_seq(npz_fname, subj_name, step_size, start=0.1, end=0.9):
     subj_name_np = np.tile(np.array(subj_name, dtype=np.dtype('U50'))[None], (M, 1))[:, 0]
     return list(zip(subj_name_np, gdr, betas, pose))
 
+
+def preprocess_mesh(in_file, out_file):
+    mesh = trimesh.load_mesh(in_file)
+    v = mesh.vertices
+    f = mesh.faces
+
+    # Simplify the mesh
+    mesh_simplified = mesh.simplify_quadratic_decimation(target_face_count=6890)
+    v_smpl = mesh_simplified.vertices
+    f_smpl = mesh_simplified.faces
+
+    if len(v_smpl) > 6890:
+        # If the simplified mesh has more than 6890 vertices, further reduce the vertex count
+        mesh_simplified = mesh_simplified.simplify_quadratic_decimation(target_face_count=6890)
+        v_smpl = mesh_simplified.vertices
+        f_smpl = mesh_simplified.faces
+
+    if len(v_smpl) < 6890:
+        # If the simplified mesh has less than 6890 vertices, pad with zeros
+        padding = np.zeros((6890 - len(v_smpl), 3))
+        v_smpl = np.vstack([v_smpl, padding])
+
+    v = v_smpl
+    f = smpl.f
+    v_igl = igl.eigen.MatrixXd(v)
+    f_igl = igl.eigen.MatrixXi(f)
+    bnd = igl.boundary_loop(f_igl)
+    bnd_uv = igl.map_vertices_to_circle(f_igl, bnd)
+    uv = igl.lscm(f_igl, bnd, bnd_uv)[1]
+
+    np.savez(out_file, v=v, f=f, uv=uv)
+    print(f"Preprocessed and simplified {in_file}, saved to {out_file}")
 
 
 if __name__ == '__main__':

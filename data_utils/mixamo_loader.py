@@ -355,6 +355,19 @@ class MixamoDataset(Dataset):
             return self.vs[index], self.fs[index], self.joints[index], self.joint_names[index], \
                    self.parents[index], self.weights[index], self.tpl_edge_indexs[index], \
                    self.geo_edge_indexs[index], self.names[index]
+        else:
+            c_data = np.load(self.data_list[index])
+            v = c_data['v']
+            f = c_data['f']
+            uv = c_data['uv']
+
+            v = np.concatenate([v, uv], axis=-1)
+
+            if self.part_info is not None:
+                part_label = self.part_info['labels']
+                v = np.concatenate([v, part_label], axis=-1)
+
+            return v, f, joints, joint_names, parents, weights, tpl_edge_index, name
 
     def len(self):
         return 1000

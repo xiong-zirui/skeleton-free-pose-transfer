@@ -4,6 +4,7 @@ from scipy.sparse import csr_matrix
 from utils.lbs import lbs
 from utils.geometry import get_tpl_edges, calc_surface_geodesic
 from utils.o3d_wrapper import Mesh, MeshO3d
+import igl
 
 
 class Node(object):
@@ -205,5 +206,15 @@ if __name__ == '__main__':
         except ValueError:
             continue
 
+        # Compute LSCM UV coordinates
+        v = np.array(m.v)
+        f = np.array(m.f)
+
+        v_igl = igl.eigen.MatrixXd(v)
+        f_igl = igl.eigen.MatrixXi(f)
+        bnd = igl.boundary_loop(f_igl)
+        bnd_uv = igl.map_vertices_to_circle(f_igl, bnd)
+        uv = igl.lscm(f_igl, bnd, bnd_uv)[1]
+
         rig_info.save(save_path, v=m.v, f=m.f, tpl_edge_index=tpl_edge_index,
-                      geo_rows=geo_rows, geo_cols=geo_cols, geo_vals=geo_vals)
+                      geo_rows=geo_rows, geo_cols=geo_cols, geo_vals=geo_vals, uv=uv)

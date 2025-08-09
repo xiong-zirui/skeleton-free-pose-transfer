@@ -5,6 +5,7 @@ from utils.lbs import lbs
 from utils.geometry import get_tpl_edges, fps_np, get_nearest_face, barycentric, calc_surface_geodesic
 from utils.o3d_wrapper import Mesh, MeshO3d
 from global_var import MIXAMO_JOINTS
+import igl
 
 
 class Node(object):
@@ -212,7 +213,20 @@ if __name__ == '__main__':
         v = v * 2 / scale
         geo_rows, geo_cols, geo_vals = calc_surface_geodesic(MeshO3d(v=v, f=dst_m.f).m)
 
-        rig_info.save(save_path, v=dst_m.v.astype(np.float32), f=dst_m.f.astype(np.int32),
-                      tpl_edge_index=tpl_edge_index,
-                      geo_rows=geo_rows, geo_cols=geo_cols, geo_vals=geo_vals)
+        v_all = np.asarray(v)
+        f_all = np.asarray(dst_m.f)
+
+        # calculate LSCM
+        v_igl = igl.eigen.MatrixXd(v_all)
+        f_igl = igl.eigen.MatrixXi(f_all)
+        bnd = igl.boundary_loop(f_igl)
+        bnd_uv = igl.map_vertices_to_circle(f_igl, bnd)
+        uv = igl.lscm(f_igl, bnd, bnd_uv)[1]
+
+        # save
+        np.savez(save_path, v=v_all, f=f_all, uv=uv)
+        print(f"Preprocessed and simplified {fname}, saved to {save_path}")
+        # rig_info.save(save_path, v=dst_m.v.astype(np.float32), f=dst_m.f.astype(np.int32),
+        #               tpl_edge_index=tpl_edge_index,
+        #               geo_rows=geo_rows, geo_cols=geo_cols, geo_vals=geo_vals)
 

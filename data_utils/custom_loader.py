@@ -32,20 +32,20 @@ class CustomDataset(Dataset):
         print('Number of subjects:', len(self))
 
     def get(self, index):
-        v, f, tpl_edge_index, name = self.load(index)
-        tpl_edge_index = torch.from_numpy(tpl_edge_index).long()
-        tpl_edge_index, _ = add_self_loops(tpl_edge_index, num_nodes=v.shape[0])
+        c_data = np.load(self.data_list[index])
+        v = c_data['v']
+        f = c_data['f']
+        uv = c_data['uv']
 
-        center = (np.max(v, 0, keepdims=True) + np.min(v, 0, keepdims=True)) / 2
-        scale = np.max(v[:, 1], 0) - np.min(v[:, 1], 0)
-        v0 = (v - center) / scale
+        v = np.concatenate([v, uv], axis=-1)
 
-        v0 = torch.from_numpy(v0).float()
-        normal_v0 = get_normal(v0, f)
-        return Data(v0=v0, tpl_edge_index=tpl_edge_index, triangle=f[None].astype(int),
-                    feat0=normal_v0,
-                    center=torch.from_numpy(center).float(), scale=torch.from_numpy(np.array(scale)).float(),
-                    name=name, num_nodes=len(v0))
+        edge_index = self.build_edge(f)
+        data = Data(x=torch.from_numpy(v).float(),
+                    edge_index=edge_index,
+                    triangle=f[None].astype(int),
+                    name=self.names[index],
+                    num_nodes=len(v))
+        return data
 
     def get_by_name(self, name):
         idx = self.names.index(name)
